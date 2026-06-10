@@ -1,0 +1,53 @@
+from dotenv import load_dotenv
+load_dotenv()
+import requests
+from base64 import b64encode
+import httpx
+import os
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+
+
+def get_spotify_token_sync():
+    url = "https://accounts.spotify.com/api/token"
+    headers = {
+        "Authorization": "Basic " + b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode(),
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {"grant_type": "client_credentials"}
+    response = requests.post(url, headers=headers, data=data)
+    return response.json().get("access_token")
+
+async def search_spotify_song(client: httpx.AsyncClient, token: str, song_name: str, artist_name: str):
+    url = "https://api.spotify.com/v1/search"
+    headers = {"Authorization": f"Bearer {token}"}
+    query = f"track:{song_name} artist:{artist_name}"
+    try:
+        response = await client.get(url, headers=headers, params={"q": query, "type": "track", "limit": 1}, timeout=10.0)
+        
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get("tracks", {}).get("items", [])
+            
+            if items:
+                item = items[0] 
+                return {
+                    "busqueda_original": f"{song_name} - {artist_name}",
+                    "encontrado": True,
+                    "titulo": item["name"],
+                    "artista": ", ".join([a["name"] for a in item["artists"]]),
+                    "album": item["album"]["name"],
+                    "imagen": item["album"]["images"][0]["url"] if item["album"]["images"] else None,
+                    "preview_url": item.get("preview_url"),
+                    "spotify_url": item["external_urls"]["spotify"],
+                    "track_id": item.get("id")
+                }
+    except Exception as e:
+        print(f"Error buscando {song_name}: {e}")
+    return {
+        "busqueda_original": f"{song_name} - {artist_name}",
+        "encontrado": False,
+        "error": "No encontrada en Spotify"
+    }
+
