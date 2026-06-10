@@ -34,4 +34,4 @@ jobs:
                 file: "./Practica 3/Dockerfile.seeded"
                 push: true
                 tags: |
-                    ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+                    ghcr.io/${{ env.REPO_LC }}:${{ github.ref_name }}
